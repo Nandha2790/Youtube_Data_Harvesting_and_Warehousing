@@ -1,6 +1,6 @@
 # Youtube Data Harvesting and Warehousing
 ## Overview
-This project aims to harvest data from YouTube channels using the YouTube API and store it in MongoDB. The harvested data includes channel information, playlist data, video data, and comment data. After cleaning the data, it is structured and stored in MongoDB. Additionally, the project provides functionality to export the data to MySQL for further analysis.
+This project aims to harvest data from YouTube channels using the YouTube API and store it in MongoDB. The harvested data includes channel information, playlist data, video data, and comment data it is stored in MongoDB. Additionally, the project provides functionality to export the data to MySQL for further analysis.
 
 ## Features
 Import YouTube channel data to MongoDB using the Google API.
