@@ -8,11 +8,11 @@ import pymysql
 from sqlalchemy import create_engine
 import isodate
 
-st.markdown("## :red[YouTube] Data Harvesting and Warehousing" )
+st.markdown("## :red[YouTube] Data Harvesting and Warehousing" ) #title of the project
 
 with st.sidebar:
       
-      st.header("Import youtube channel data to MongoDB Using Google API") #title of the project
+      st.header("Import youtube channel data to MongoDB Using Google API") 
 
       channel_id = st.text_input("Channel_id:",placeholder="Enter your channel id") #for user to enter the channel id
 
