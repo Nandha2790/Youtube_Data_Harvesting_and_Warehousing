@@ -246,53 +246,27 @@ with st.sidebar:
 
             comment_table = {"comment_"+str(i+1):comment_thread(video_id[i]) for i in range(len(video_id))}    
 
+            channel_data = { "channel": [channel_table],"playlist_data": [playlist_table],"video_data": [video_data],"comment_table": [comment_table]}
+
             # Setting up MongoDB connection
             mongo_client = MongoClient("mongodb://localhost:27017/") 
 
-            db_name = channel_table["channel_name"].replace(' ', '_')
+            db_name = "Youtube_Data"
+
+            collection_name = channel_table["channel_name"].replace(' ', '_')
 
             db = mongo_client[db_name]
 
             existing_collections = db.list_collection_names()
 
             # To store channel data
-            if "channel_data" not in existing_collections:
-                  collection_channel = db["channel_data"]
-                  collection_channel.insert_one(channel_table)
+            if collection_name not in existing_collections:
+                  collection_channel = db[collection_name]
+                  collection_channel.insert_one(channel_data)
 
             else:
-                  collection_channel = db["channel_data"]
-                  collection_channel.replace_one({},channel_table)
-
-            # To store playlist data
-
-            if "playlist_data" not in existing_collections:
-                  collection_playlist = db["playlist_data"]
-                  collection_playlist.insert_one(playlist_table)
-
-            else:
-                  collection_playlist = db["playlist_data"]
-                  collection_playlist.replace_one({},playlist_table)
-            
-            # To store video data
-
-            if "video_data" not in existing_collections:
-                  collection_video = db["video_data"]
-                  collection_video.insert_one(video_data)
-            
-            else:
-                  collection_video = db["video_data"]
-                  collection_video.replace_one({},video_data)
-
-            # To store comment data
-
-            if "comment_data" not in existing_collections:
-                  collection_comment = db["comment_data"]
-                  collection_comment.insert_one(comment_table)
-
-            else:
-                  collection_comment = db["comment_data"]
-                  collection_comment.replace_one({},comment_table)
+                  collection_channel = db[collection_name]
+                  collection_channel.replace_one({},channel_data)
 
             # Close the MongoDB connection
             mongo_client.close()
@@ -306,108 +280,61 @@ with st.sidebar:
                         st.warning("Please enter your api key")
 
 
-#Video Table Creation
+# Set up MongoDB connection
+mongo_client = MongoClient("mongodb://localhost:27017/") 
+db = mongo_client["Youtube_Data"]
+existing_collections = db.list_collection_names()
 
-def vi_table(db_name):
-    mongo_client = MongoClient('localhost', 27017)
-    db = mongo_client[db_name]
-    collection_video = db["video_data"]
-    video_data = pd.DataFrame(list(collection_video.find({},{"_id":0}))).transpose()
-    video_table = video_data[0].apply(pd.Series).transpose()
+def channel_SQL_table(collection_channel):
+    df_channel = pd.DataFrame(list(collection_channel.find({},{"_id":0})))
+    channel_table = pd.DataFrame(df_channel['channel'][0])
+    return channel_table
+
+def playlist_SQL_table(collection_channel):
+    df_channel = pd.DataFrame(list(collection_channel.find({},{"_id":0})))
+    playlist_table_df1 = pd.DataFrame(df_channel['playlist_data'][0]).transpose()
+    playlist_table = playlist_table_df1[0].apply(pd.Series).transpose()
+    return playlist_table
+
+def video_SQL_table(collection_channel):
+    df_channel = pd.DataFrame(list(collection_channel.find({},{"_id":0})))
+    df_video_table = pd.DataFrame(df_channel['video_data'][0]).transpose()
+    video_table = df_video_table[0].apply(pd.Series).transpose()
     video_table['duration'] = video_table['duration'].apply(isodate.parse_duration).apply(lambda x: x.total_seconds()).astype(int)
     video_table['comment_count'] = video_table['comment_count'].astype(int)
     video_table['favorite_count'] = video_table['favorite_count'].astype(int)
     video_table['like_count'] = video_table['like_count'].astype(int)
     video_table['view_count'] = video_table['view_count'].astype(int)
     video_table['published_date'] = pd.to_datetime(video_table['published_date'])
-    mongo_client.close()
     return video_table
 
+def comment_SQL_table(collection_channel):
+    df_channel = pd.DataFrame(list(collection_channel.find({},{"_id":0})))
+    comment_df1 = pd.DataFrame(df_channel['comment_table'][0]).transpose()
+    comment_df2 = comment_df1[0].apply(pd.Series)
+    comment_df3 = comment_df2['comment_id'].explode()
+    comment_df4 = comment_df2['video_id'].explode()
+    comment_df5 = comment_df2['comment_text'].explode()
+    comment_df6 = comment_df2['comment_author'].explode()
+    comment_df7 = comment_df2['comment_published_date'].explode()
 
-# Data Structuring
-db_names = ['Akshada_Cooking_Channel',
-            'Homemade_Recipes_Tamil_By_Naz',
-            'Lakshmi_Cooks',
-            'THAMIZH_COOKING_CHANNEL',
-            'Tamil_Cooking_Channel_Modern_Aachi',
-            'Tamil_Food_Samayal',
-            'Tamil_cooking_tech',
-            'Tamil_food_world',
-            'Village_Colorful_Cooking',
-            'chettinad_cooking_channel']
+    comment_df8 = [comment_df3,comment_df4,comment_df5,comment_df6,comment_df7]
 
+    comment_table = pd.concat(comment_df8,axis=1)
+    comment_table = comment_table.dropna()
+    comment_table = comment_table.reset_index(drop=True)
+    return comment_table
 
-# Initialize empty lists to collect DataFrames
-df_channel = []
-df_playlist_data = []
-df_comment_data = []
-
-# Connect to MongoDB
-mongo_client = MongoClient('localhost', 27017)
-
-for db_name in db_names:
-      db = mongo_client[db_name]
-      collection_channel = db["channel_data"]
-      collection_playlist = db["playlist_data"]
-      collection_comment = db["comment_data"]
-      
-      df_channel.append(pd.DataFrame(list(collection_channel.find({},{"_id":0}))))
-      df_playlist_data.append(pd.DataFrame(list(collection_playlist.find({},{"_id":0}))))
-      df_comment_data.append(pd.DataFrame(list(collection_comment.find({},{"_id":0}))))
-      
+channel_table = pd.concat([channel_SQL_table(db[existing_collections[i]]) for i in range (len(existing_collections))]).reset_index(drop=True)
+playlist_table = pd.concat([playlist_SQL_table(db[existing_collections[i]]) for i in range (len(existing_collections))]).reset_index(drop=True)
+video_table = pd.concat([video_SQL_table(db[existing_collections[i]]) for i in range (len(existing_collections))]).reset_index(drop=True)
+comment_table = pd.concat([comment_SQL_table(db[existing_collections[i]]) for i in range (len(existing_collections))]).reset_index(drop=True)
 mongo_client.close()
 
-channel_table = pd.concat(df_channel,axis=0).reset_index(drop=True)
-channel_table.index = channel_table.index + 1
-
-df_playlist_data1= pd.concat(df_playlist_data,axis=0)
-df_playlist_data2= pd.concat(df_playlist_data,axis=0)
-df_playlist_data3 = df_playlist_data2['channel_id'].explode()
-df_playlist_data4 = df_playlist_data2['playlist_id'].explode()
-df_playlist_data5 = df_playlist_data2['playlist_name'].explode()
-df_playlist_data6 = [df_playlist_data3,df_playlist_data4,df_playlist_data5]
-playlist_table = pd.concat(df_playlist_data6,axis=1).reset_index(drop=True)
-playlist_table.index = playlist_table.index + 1
-
-vi_df = []
-for i in db_names:
-      vi_df.append(vi_table(i))
-
-video_table = pd.concat(vi_df,axis=0).drop_duplicates().reset_index(drop=True)
-video_table.index = video_table.index + 1
-
-comment_df1 = pd.concat(df_comment_data,axis=1).transpose()
-comment_df2 = comment_df1[0].apply(pd.Series)
-comment_df3 = comment_df2['comment_id'].explode()
-comment_df4 = comment_df2['video_id'].explode()
-comment_df5 = comment_df2['comment_text'].explode()
-comment_df6 = comment_df2['comment_author'].explode()
-comment_df7 = comment_df2['comment_published_date'].explode()
-
-comment_df8 = [comment_df3,comment_df4,comment_df5,comment_df6,comment_df7]
-
-comment_table = pd.concat(comment_df8,axis=1)
-comment_table['comment_published_date'] = pd.to_datetime(comment_table['comment_published_date'])
-comment_table = comment_table.dropna().drop_duplicates().reset_index(drop=True)
-comment_table.index = comment_table.index + 1
-
-#python to MySQL
-
 def export_to_Mysql():
-    myconnection = pymysql.connect(host='127.0.0.1', user='root', passwd="pwd123", database="guvi_youtube_project")
+    myconnection = pymysql.connect(host='127.0.0.1', user='root', passwd="pwd123", database="youtube_data_harvesting")
 
-    engine = create_engine('mysql+pymysql://root:pwd123@127.0.0.1/guvi_youtube_project')
-    
-    channel_table.to_sql("channel_table", con=engine, if_exists='replace', index=False)
-    playlist_table.to_sql("playlist_table", con=engine, if_exists='replace', index=False)
-    video_table.to_sql("video_table", con=engine, if_exists='replace', index=False)
-    comment_table.to_sql("comment_table", con=engine, if_exists='replace', index=False)
-    myconnection.close()
-
-def export_to_Mysql_test():
-    myconnection = pymysql.connect(host='127.0.0.1', user='root', passwd="pwd123", database="test")
-
-    engine = create_engine('mysql+pymysql://root:pwd123@127.0.0.1/test')
+    engine = create_engine('mysql+pymysql://root:pwd123@127.0.0.1/youtube_data_harvesting')
     
     channel_table.to_sql("channel_table", con=engine, if_exists='replace', index=False)
     playlist_table.to_sql("playlist_table", con=engine, if_exists='replace', index=False)
@@ -416,98 +343,84 @@ def export_to_Mysql_test():
     myconnection.close()
 
 
-tab1, tab2, tab3 = st.tabs(["Channel_Data","Export to SQL","10 SQL Queries"])
+tab1, tab2, tab3 = st.tabs(["Channel_List","Export to MySQL","10 SQL Queries"])
 
 with tab1:
    st.header("Tamil cooking Channel List")
    channel_table[['channel_name','channel_views','subcribercount']]
-   Export_data = st.button("Export channel data MySQL")
+   Export_data = st.button("Export above listed channel data MySQL")
 
    if Export_data:
       export_to_Mysql()
       st.success('Succesfully stored data in MySql')   
 
+
+def mysql_query_test(query):
+    myconnection = pymysql.connect(host='127.0.0.1', user='root', passwd="pwd123", database="test")
+    mycursor = myconnection.cursor()
+    sql_query = query 
+    mycursor.execute(sql_query)
+    result = mycursor.fetchall()
+    column = [col[0] for col in mycursor.description]
+    df_query= pd.DataFrame(result,columns=column)
+    df_query.index = df_query.index + 1 
+    df_query.index = df_query.index.rename('SL.No')
+    myconnection.close()
+    return df_query
+
+
 with tab2:
+   
+   
+   mongo_client = MongoClient("mongodb://localhost:27017/") 
+   db = mongo_client["Youtube_Data"]
+   existing_collections = db.list_collection_names()
    st.header("Select a Channel from below Channel list to export data to SQL")
    channel_names = st.selectbox(
     'Channel list',
-    ('Akshada_Cooking_Channel','Homemade_Recipes_Tamil_By_Naz','Lakshmi_Cooks','THAMIZH_COOKING_CHANNEL','Tamil_Cooking_Channel_Modern_Aachi','Tamil_Food_Samayal','Tamil_cooking_tech','Tamil_food_world','Village_Colorful_Cooking','chettinad_cooking_channel'))
-   db_name = []
-   db_name.append(channel_names)
-   Export_channel_data = st.button("Export to MySQL")
+    (existing_collections))
+   
+   Export_channel_data = st.button("Export the selected channel to MySQL")
+
+   channel_table_by_selection = channel_SQL_table(db[channel_names])
+   playlist_table_by_selection = playlist_SQL_table(db[channel_names])
+   video_table_by_selection = video_SQL_table(db[channel_names])
+   comment_table_by_selection = comment_SQL_table(db[channel_names])
+   mongo_client.close()
+
+   def export_to_Mysql_test():
+
+      myconnection = pymysql.connect(host='127.0.0.1', user='root', passwd="pwd123", database="test")
+
+      engine = create_engine('mysql+pymysql://root:pwd123@127.0.0.1/test')
+
+      channel_table_by_selection.to_sql("channel_table", con=engine, if_exists='replace', index=False)
+      playlist_table_by_selection.to_sql("playlist_table", con=engine, if_exists='replace', index=False)
+      video_table_by_selection.to_sql("video_table", con=engine, if_exists='replace', index=False)
+      comment_table_by_selection.to_sql("comment_table", con=engine, if_exists='replace', index=False)
+      myconnection.close()
 
    if Export_channel_data:
-      # Initialize empty lists to collect DataFrames     
-      df_channel = []
-      df_playlist_data = []
-      df_comment_data = []
+      export_to_Mysql_test()
+      st.success('Succesfully stored data in MySql')
+      channel_table_query = """ select * from channel_table; """
+      playlist_table_query = """ select * from playlist_table;"""
+      video_table_query = """ select * from video_table; """
+      comment_table_query = """ select * from comment_table; """
+      result_channel_tabel = mysql_query_test(channel_table_query)
+      result_playlist_tabel = mysql_query_test(playlist_table_query)
+      result_video_table = mysql_query_test(video_table_query)
+      result_comment_table = mysql_query_test(comment_table_query)
+      st.subheader("Channel Table")
+      result_channel_tabel
+      st.subheader("Playlist Table")
+      result_playlist_tabel
+      st.subheader("Video Table")
+      result_video_table
+      st.subheader("Comment table")
+      result_comment_table
 
-      # Connect to MongoDB
-      mongo_client = MongoClient('localhost', 27017)
-
-      for db_name in db_names:
-            db = mongo_client[db_name]
-            collection_channel = db["channel_data"]
-            collection_playlist = db["playlist_data"]
-            collection_comment = db["comment_data"]
             
-            df_channel.append(pd.DataFrame(list(collection_channel.find({},{"_id":0}))))
-            df_playlist_data.append(pd.DataFrame(list(collection_playlist.find({},{"_id":0}))))
-            df_comment_data.append(pd.DataFrame(list(collection_comment.find({},{"_id":0}))))
-            
-      mongo_client.close()
-
-      channel_table = pd.concat(df_channel,axis=0).reset_index(drop=True)
-      channel_table.index = channel_table.index + 1
-
-      df_playlist_data1= pd.concat(df_playlist_data,axis=0)
-      df_playlist_data2= pd.concat(df_playlist_data,axis=0)
-      df_playlist_data3 = df_playlist_data2['channel_id'].explode()
-      df_playlist_data4 = df_playlist_data2['playlist_id'].explode()
-      df_playlist_data5 = df_playlist_data2['playlist_name'].explode()
-      df_playlist_data6 = [df_playlist_data3,df_playlist_data4,df_playlist_data5]
-      playlist_table = pd.concat(df_playlist_data6,axis=1).reset_index(drop=True)
-      playlist_table.index = playlist_table.index + 1
-
-      def vi_table(db_name):
-            mongo_client = MongoClient('localhost', 27017)
-            db = mongo_client[db_name]
-            collection_video = db["video_data"]
-            video_data = pd.DataFrame(list(collection_video.find({},{"_id":0}))).transpose()
-            video_table = video_data[0].apply(pd.Series).transpose()
-            video_table['duration'] = video_table['duration'].apply(isodate.parse_duration).apply(lambda x: x.total_seconds()).astype(int)
-            video_table['comment_count'] = video_table['comment_count'].astype(int)
-            video_table['favorite_count'] = video_table['favorite_count'].astype(int)
-            video_table['like_count'] = video_table['like_count'].astype(int)
-            video_table['view_count'] = video_table['view_count'].astype(int)
-            video_table['published_date'] = pd.to_datetime(video_table['published_date'])
-            mongo_client.close()
-            return video_table
-
-      vi_df = []
-      for i in db_names:
-            vi_df.append(vi_table(i))
-      
-      video_table = pd.concat(vi_df,axis=0).drop_duplicates().reset_index(drop=True)
-      video_table.index = video_table.index + 1
-
-      comment_df1 = pd.concat(df_comment_data,axis=1).transpose()
-      comment_df2 = comment_df1[0].apply(pd.Series)
-      comment_df3 = comment_df2['comment_id'].explode()
-      comment_df4 = comment_df2['video_id'].explode()
-      comment_df5 = comment_df2['comment_text'].explode()
-      comment_df6 = comment_df2['comment_author'].explode()
-      comment_df7 = comment_df2['comment_published_date'].explode()
-
-      comment_df8 = [comment_df3,comment_df4,comment_df5,comment_df6,comment_df7]
-
-      comment_table = pd.concat(comment_df8,axis=1)
-      comment_table['comment_published_date'] = pd.to_datetime(comment_table['comment_published_date'])
-      comment_table = comment_table.dropna().drop_duplicates().reset_index(drop=True)
-      comment_table.index = comment_table.index + 1
-
-      export_to_Mysql_test() 
-      st.success('Succesfully stored data in MySql test database')
    
 with tab3: 
    st.header("10 SQL queries based on Requirment")
