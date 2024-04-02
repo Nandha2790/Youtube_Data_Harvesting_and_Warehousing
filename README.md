@@ -37,12 +37,12 @@ View and query the data in the Streamlit app.
 - The imported data includes channel information, playlist data, video data, and comment data.
 
 ## Exporting Data to MySQL
-- Use the "Export above listed channel data MySQL" tab in the Streamlit app to export the cleaned data from MongoDB to MySQL.
+- Use the "Export to MySQL" tab in the Streamlit app to export the structure data from MongoDB to MySQL.
 - Specify the MySQL database connection details (host, port, database name, username, password).
 - Click the "Export the selected channel to MySQL" button to transfer the selected channel data to MySQL.
 
 ## Viewing and Querying Data
-- The "Channel Data" tab displays information about the Extracted YouTube channel list.
+- The "The Output" tab displays the Extracted YouTube channel data using Google API.
 - The "Export to MySQL" tab displays the list of Extracted youtube channel where user can select a channel and saved its data to MySQL.
 - Use the "10 SQL Queries" tab to view the selected queries.
 
